@@ -212,3 +212,5 @@ void LogCompressor::_signalCriticalError(const QString& msg)
 {
     emit logProcessingCriticalError(tr("Log Compressor"), msg);
 }
+
+
