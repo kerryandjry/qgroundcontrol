@@ -8,21 +8,26 @@
  *
  ****************************************************************************/
 
+#include "AppMessages.h"
+#include "LoginCheck.h"
+#include "QGC.h"
+#include "QGCApplication.h"
 #include <QApplication>
 #include <QHostAddress>
 #include <QIcon>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QProcessEnvironment>
+#include <QPushButton>
 #include <QSslSocket>
 #include <QStringListModel>
 #include <QUdpSocket>
-#include <QtGlobal>
+#include <QVBoxLayout>
 #include <QtPlugin>
-
-#include "AppMessages.h"
-#include "LoginDialog.h"
-#include "QGC.h"
-#include "QGCApplication.h"
+#include <QtWidgets/qdialog.h>
+#include <chrono>
+#include <thread>
 
 #ifndef NO_SERIAL_LINK
 #include "SerialLink.h"
@@ -278,23 +283,6 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
 
-#ifdef Q_OS_WIN
-  // Set our own OpenGL buglist
-  qputenv("QT_OPENGL_BUGLIST", ":/opengl/resources/opengl/buglist.json");
-
-  // Allow for command line override of renderer
-  for (int i = 0; i < argc; i++) {
-    const QString arg(argv[i]);
-    if (arg == QStringLiteral("-angle")) {
-      QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
-      break;
-    } else if (arg == QStringLiteral("-swrast")) {
-      QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
-      break;
-    }
-  }
-#endif
-
 #ifdef Q_OS_LINUX
   std::signal(SIGINT, sigHandler);
   std::signal(SIGTERM, sigHandler);
@@ -333,50 +321,7 @@ int main(int argc, char *argv[]) {
   Q_IMPORT_PLUGIN(QGeoServiceProviderFactoryQGC)
 
   bool runUnitTests = false; // Run unit tests
-
-#ifdef QT_DEBUG
-  // We parse a small set of command line options here prior to QGCApplication
-  // in order to handle the ones which need to be handled before a QApplication
-  // object is started.
-
-  bool stressUnitTests = false;     // Stress test unit tests
-  bool quietWindowsAsserts = false; // Don't let asserts pop dialog boxes
-
-  QString unitTestOptions;
-  CmdLineOpt_t rgCmdLineOptions[] = {
-      {"--unittest", &runUnitTests, &unitTestOptions},
-      {"--unittest-stress", &stressUnitTests, &unitTestOptions},
-      {"--no-windows-assert-ui", &quietWindowsAsserts, nullptr},
-      // Add additional command line option flags here
-  };
-
-  ParseCmdLineOptions(argc, argv, rgCmdLineOptions,
-                      sizeof(rgCmdLineOptions) / sizeof(rgCmdLineOptions[0]),
-                      false);
-  if (stressUnitTests) {
-    runUnitTests = true;
-  }
-
-  if (quietWindowsAsserts) {
-#ifdef Q_OS_WIN
-    _CrtSetReportHook(WindowsCrtReportHook);
-#endif
-  }
-
-#ifdef Q_OS_WIN
-  if (runUnitTests) {
-    // Don't pop up Windows Error Reporting dialog when app crashes. This
-    // prevents TeamCity from hanging.
-    DWORD dwMode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
-    SetErrorMode(dwMode | SEM_NOGPFAULTERRORBOX);
-  }
-#endif
-#endif // QT_DEBUG
-
-  LoginDialog dialog;
-  if (dialog.exec() != QDialog::Accepted) {
-    return -1;
-  }
+  bool flag = false;
 
   QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
   QGCApplication *app = new QGCApplication(argc, argv, runUnitTests);
@@ -386,46 +331,63 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  QDialog dialog;
+  QLineEdit *username = new QLineEdit;
+  username->setPlaceholderText("Username");
+
+  QLineEdit *password = new QLineEdit;
+  password->setPlaceholderText("Password");
+  password->setEchoMode(QLineEdit::Password);
+
+  QPushButton *loginButton = new QPushButton("Login");
+  QObject::connect(loginButton, &QPushButton::clicked, [&]() {
+    if (loginCheck(username->text().toStdString(),
+                   password->text().toStdString())) {
+      QMessageBox::information(nullptr, "Information", "Login success");
+      flag = true;
+      dialog.close();
+    } else {
+      QMessageBox::warning(nullptr, "Warning", "Wrong username or password");
+      flag = false;
+    }
+  });
+
+  QLabel *lable = new QLabel("Please Login");
+
+  QVBoxLayout *layout = new QVBoxLayout;
+  layout->addWidget(lable);
+  layout->addWidget(username);
+  layout->addWidget(password);
+  layout->addWidget(loginButton);
+
+  dialog.setLayout(layout);
+
+  dialog.setWindowTitle("Login");
+  dialog.resize(250, 100);
+
+  dialog.show();
+  dialog.exec();
+
+  if (flag) {
 #ifdef Q_OS_LINUX
-  QApplication::setWindowIcon(
-      QIcon(":/res/resources/icons/qgroundcontrol.ico"));
+    QApplication::setWindowIcon(
+        QIcon(":/res/resources/icons/qgroundcontrol.ico"));
 #endif /* Q_OS_LINUX */
 
-  // There appears to be a threading issue in qRegisterMetaType which can cause
-  // it to throw a qWarning about duplicate type converters. This is caused by a
-  // race condition in the Qt code. Still working with them on tracking down the
-  // bug. For now we register the type which is giving us problems here while we
-  // only have the main thread. That should prevent it from hitting the race
-  // condition later on in the code.
-  qRegisterMetaType<QList<QPair<QByteArray, QByteArray>>>();
+    // There appears to be a threading issue in qRegisterMetaType which can
+    // cause it to throw a qWarning about duplicate type converters. This is
+    // caused by a race condition in the Qt code. Still working with them on
+    // tracking down the bug. For now we register the type which is giving us
+    // problems here while we only have the main thread. That should prevent it
+    // from hitting the race condition later on in the code.
+    qRegisterMetaType<QList<QPair<QByteArray, QByteArray>>>();
 
-  app->_initCommon();
-  //-- Initialize Cache System
-  getQGCMapEngine()->init();
+    app->_initCommon();
+    //-- Initialize Cache System
+    getQGCMapEngine()->init();
 
-  int exitCode = 0;
-
-#ifdef UNITTEST_BUILD
-  if (runUnitTests) {
-    for (int i = 0; i < (stressUnitTests ? 20 : 1); i++) {
-      if (!app->_initForUnitTests()) {
-        return -1;
-      }
-
-      // Run the test
-      int failures = UnitTest::run(unitTestOptions);
-      if (failures == 0) {
-        qDebug() << "ALL TESTS PASSED";
-        exitCode = 0;
-      } else {
-        qDebug() << failures << " TESTS FAILED!";
-        exitCode = -failures;
-        break;
-      }
-    }
-  } else
-#endif
-  {
+    // Add any branch here
+    int exitCode = 0;
 
 #ifdef __android__
     checkAndroidWritePermission();
@@ -433,15 +395,16 @@ int main(int argc, char *argv[]) {
     if (!app->_initForNormalAppBoot()) {
       return -1;
     }
+
     exitCode = app->exec();
+
+    app->_shutdown();
+    delete app;
+    //-- Shutdown Cache System
+    destroyMapEngine();
+
+    qDebug() << "After app delete";
+
+    return exitCode;
   }
-
-  app->_shutdown();
-  delete app;
-  //-- Shutdown Cache System
-  destroyMapEngine();
-
-  qDebug() << "After app delete";
-
-  return exitCode;
 }
