@@ -24,6 +24,7 @@
 #include <QStringListModel>
 #include <QUdpSocket>
 #include <QVBoxLayout>
+#include <QtCore/qlogging.h>
 #include <QtPlugin>
 #include <QtWidgets/qdialog.h>
 #include <chrono>
@@ -343,7 +344,8 @@ int main(int argc, char *argv[]) {
   QObject::connect(loginButton, &QPushButton::clicked, [&]() {
     if (loginCheck(username->text().toStdString(),
                    password->text().toStdString())) {
-      QMessageBox::information(nullptr, "Information", "Login success");
+      // QMessageBox::information(nullptr, "Information", "Login success");
+      qDebug() << "Login success";
       flag = true;
       dialog.close();
     } else {
@@ -406,5 +408,9 @@ int main(int argc, char *argv[]) {
     qDebug() << "After app delete";
 
     return exitCode;
+  } else {
+    qDebug() << "Exit app without login";
+
+    return -1;
   }
 }
