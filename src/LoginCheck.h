@@ -1,9 +1,16 @@
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 
+#ifdef Q_OS_UNIX
+#include <experimental/filesystem>
+#endif
+
+#ifdef Q_OS_MAC
+#include <filesystem>
+#endif
+
 bool loginCheck(const std::string &username, const std::string &password) {
-  auto current_path = std::filesystem::current_path();
+
   auto file = "passport_list.yaml";
 
   if (!std::filesystem::exists(file)) {
