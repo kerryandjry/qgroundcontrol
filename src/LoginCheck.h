@@ -1,15 +1,8 @@
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 
 bool loginCheck(const std::string &username, const std::string &password) {
-  auto current_path = std::filesystem::current_path();
   auto file = "passport_list.yaml";
-
-  if (!std::filesystem::exists(file)) {
-    std::cerr << "File does not exist:" << file << std::endl;
-    return false;
-  }
 
   std::ifstream infile(file);
 
