@@ -380,7 +380,6 @@ DEPENDPATH += \
     plugins
 
 INCLUDEPATH += .
-
 INCLUDEPATH += \
     include/ui \
     src \
@@ -571,6 +570,14 @@ DebugBuild { PX4FirmwarePlugin { PX4FirmwarePluginFactory { APMFirmwarePlugin { 
 
 # Main QGC Headers and Source files
 
+INCLUDEPATH += \
+    /usr/local/include/bsoncxx/v_noabi \
+    /usr/local/include/mongocxx/v_noabi \
+    /usr/local/include/lib \
+    /usr/local/include/libbson-1.0 \
+LIBS += \
+    /usr/local/lib -lbsoncxx -lmongocxx\
+
 HEADERS += \
     src/ADSB/ADSBVehicle.h \
     src/ADSB/ADSBVehicleManager.h \
@@ -759,6 +766,9 @@ HEADERS += \
     src/uas/UASMessageHandler.h \
     src/AnalyzeView/GeoTagController.h \
     src/AnalyzeView/ExifParser.h \
+    src/DBConnect.h \
+    src/LoginCheck.h \
+    src/User.h \
 
 contains (DEFINES, QGC_ENABLE_PAIRING) {
     HEADERS += \
@@ -1014,6 +1024,8 @@ SOURCES += \
     src/uas/UASMessageHandler.cc \
     src/AnalyzeView/GeoTagController.cc \
     src/AnalyzeView/ExifParser.cc \
+    src/DBConnect.cc \
+    src/User.cpp \
 
 contains (DEFINES, QGC_ENABLE_PAIRING) {
     SOURCES += \

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * (c) 2009-2020 QLinux上处理Ctrl+C信号GROUNDCONTROL PROJECT
+ * (c) 2009-2020 QGROUNDCONTROL PROJECT
  *<http://www.qgroundcontrol.org>
  *
  * QGroundControl is licensed according to the terms in the file
@@ -12,6 +12,8 @@
 #include "LoginCheck.h"
 #include "QGC.h"
 #include "QGCApplication.h"
+#include "DBConnect.h"
+#include "User.h"
 #include <QApplication>
 #include <QHostAddress>
 #include <QIcon>
@@ -31,23 +33,33 @@
 #include <thread>
 
 #ifndef NO_SERIAL_LINK
+
 #include "SerialLink.h"
+
 #endif
 
 #ifndef __mobile__
+
 #include "QGCSerialPortInfo.h"
 #include "RunGuard.h"
+
 #ifndef NO_SERIAL_LINK
+
 #include <QSerialPort>
+
 #endif
 #endif
 
 #ifdef UNITTEST_BUILD
+
 #include "UnitTest.h"
+
 #endif
 
 #ifdef QT_DEBUG
+
 #include "CmdLineOptParser.h"
+
 #ifdef Q_OS_WIN
 #include <crtdbg.h>
 #endif
@@ -69,7 +81,9 @@
 
 #ifndef __mobile__
 #ifndef NO_SERIAL_LINK
+
 Q_DECLARE_METATYPE(QGCSerialPortInfo)
+
 #endif
 #endif
 
@@ -221,11 +235,12 @@ bool checkAndroidWritePermission() {
 
 // To shut down QGC on Ctrl+C on Linux
 #ifdef Q_OS_LINUX
+
 #include <csignal>
 
 void sigHandler(int s) {
-  std::signal(s, SIG_DFL);
-  QApplication::instance()->quit();
+    std::signal(s, SIG_DFL);
+    QApplication::instance()->quit();
 }
 
 #endif /* Q_OS_LINUX */
@@ -241,176 +256,179 @@ void sigHandler(int s) {
 
 int main(int argc, char *argv[]) {
 #ifndef __mobile__
-  // We make the runguard key different for custom and non custom
-  // builds, so they can be executed together in the same device.
-  // Stable and Daily have same QGC_APPLICATION_NAME so they would
-  // not be able to run at the same time
-  QString runguardString(QGC_APPLICATION_NAME);
-  runguardString.append("RunGuardKey");
+    // We make the runguard key different for custom and non custom
+    // builds, so they can be executed together in the same device.
+    // Stable and Daily have same QGC_APPLICATION_NAME so they would
+    // not be able to run at the same time
+    QString runguardString(QGC_APPLICATION_NAME);
+    runguardString.append("RunGuardKey");
 
-  RunGuard guard(runguardString);
-  if (!guard.tryToRun()) {
-    // QApplication is necessary to use QMessageBox
-    QApplication errorApp(argc, argv);
-    QMessageBox::critical(
-        nullptr, QObject::tr("Error"),
-        QObject::tr("A second instance of %1 is already running. Please close "
-                    "the other instance and try again.")
-            .arg(QGC_APPLICATION_NAME));
-    return -1;
-  }
+    RunGuard guard(runguardString);
+    if (!guard.tryToRun()) {
+        // QApplication is necessary to use QMessageBox
+        QApplication errorApp(argc, argv);
+        QMessageBox::critical(
+                nullptr, QObject::tr("Error"),
+                QObject::tr("A second instance of %1 is already running. Please close "
+                            "the other instance and try again.")
+                        .arg(QGC_APPLICATION_NAME));
+        return -1;
+    }
 #endif
 
-  //-- Record boot time
-  QGC::initTimer();
+    //-- Record boot time
+    QGC::initTimer();
 
 #ifdef Q_OS_UNIX
-  // Force writing to the console on UNIX/BSD devices
-  if (!qEnvironmentVariableIsSet("QT_LOGGING_TO_CONSOLE"))
-    qputenv("QT_LOGGING_TO_CONSOLE", "1");
+    // Force writing to the console on UNIX/BSD devices
+    if (!qEnvironmentVariableIsSet("QT_LOGGING_TO_CONSOLE"))
+        qputenv("QT_LOGGING_TO_CONSOLE", "1");
 #endif
 
-  // install the message handler
-  AppMessages::installHandler();
+    // install the message handler
+    AppMessages::installHandler();
 
 #ifdef Q_OS_MAC
 #ifndef __ios__
-  // Prevent Apple's app nap from screwing us over
-  // tip: the domain can be cross-checked on the command line with <defaults
-  // domains>
-  QProcess::execute(
-      "defaults",
-      {"write org.qgroundcontrol.qgroundcontrol NSAppSleepDisabled -bool YES"});
+    // Prevent Apple's app nap from screwing us over
+    // tip: the domain can be cross-checked on the command line with <defaults
+    // domains>
+    QProcess::execute(
+        "defaults",
+        {"write org.qgroundcontrol.qgroundcontrol NSAppSleepDisabled -bool YES"});
 #endif
 #endif
 
 #ifdef Q_OS_LINUX
-  std::signal(SIGINT, sigHandler);
-  std::signal(SIGTERM, sigHandler);
+    std::signal(SIGINT, sigHandler);
+    std::signal(SIGTERM, sigHandler);
 #endif /* Q_OS_LINUX */
 
-  // The following calls to qRegisterMetaType are done to silence debug output
-  // which warns that we use these types in signals, and without calling
-  // qRegisterMetaType we can't queue these signals. In general we don't queue
-  // these signals, but we do what the warning says anyway to silence the debug
-  // output.
+    // The following calls to qRegisterMetaType are done to silence debug output
+    // which warns that we use these types in signals, and without calling
+    // qRegisterMetaType we can't queue these signals. In general we don't queue
+    // these signals, but we do what the warning says anyway to silence the debug
+    // output.
 #ifndef NO_SERIAL_LINK
-  qRegisterMetaType<QSerialPort::SerialPortError>();
+    qRegisterMetaType<QSerialPort::SerialPortError>();
 #endif
 #ifdef QGC_ENABLE_BLUETOOTH
-  qRegisterMetaType<QBluetoothSocket::SocketError>();
-  qRegisterMetaType<QBluetoothServiceInfo>();
+    qRegisterMetaType<QBluetoothSocket::SocketError>();
+    qRegisterMetaType<QBluetoothServiceInfo>();
 #endif
-  qRegisterMetaType<QAbstractSocket::SocketError>();
+    qRegisterMetaType<QAbstractSocket::SocketError>();
 #ifndef __mobile__
 #ifndef NO_SERIAL_LINK
-  qRegisterMetaType<QGCSerialPortInfo>();
+    qRegisterMetaType<QGCSerialPortInfo>();
 #endif
 #endif
 
-  qRegisterMetaType<Vehicle::MavCmdResultFailureCode_t>(
-      "Vehicle::MavCmdResultFailureCode_t");
+    qRegisterMetaType<Vehicle::MavCmdResultFailureCode_t>(
+            "Vehicle::MavCmdResultFailureCode_t");
 
-  // We statically link our own QtLocation plugin
+    // We statically link our own QtLocation plugin
 
 #ifdef Q_OS_WIN
-  // In Windows, the compiler doesn't see the use of the class created by
-  // Q_IMPORT_PLUGIN
+    // In Windows, the compiler doesn't see the use of the class created by
+    // Q_IMPORT_PLUGIN
 #pragma warning(disable : 4930 4101)
 #endif
 
-  Q_IMPORT_PLUGIN(QGeoServiceProviderFactoryQGC)
+    Q_IMPORT_PLUGIN(QGeoServiceProviderFactoryQGC)
 
-  bool runUnitTests = false; // Run unit tests
-  bool flag = false;
+    bool runUnitTests = false; // Run unit tests
+    bool flag = false;
 
-  QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-  QGCApplication *app = new QGCApplication(argc, argv, runUnitTests);
-  Q_CHECK_PTR(app);
-  if (app->isErrorState()) {
-    app->exec();
-    return -1;
-  }
-
-  QDialog dialog;
-  QLineEdit *username = new QLineEdit;
-  username->setPlaceholderText("Username");
-
-  QLineEdit *password = new QLineEdit;
-  password->setPlaceholderText("Password");
-  password->setEchoMode(QLineEdit::Password);
-
-  QPushButton *loginButton = new QPushButton("Login");
-  QObject::connect(loginButton, &QPushButton::clicked, [&]() {
-    if (loginCheck(username->text().toStdString(),
-                   password->text().toStdString())) {
-      // QMessageBox::information(nullptr, "Information", "Login success");
-      qDebug() << "Login success";
-      flag = true;
-      dialog.close();
-    } else {
-      QMessageBox::warning(nullptr, "Warning", "Wrong username or password");
-      flag = false;
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+    QGCApplication *app = new QGCApplication(argc, argv, runUnitTests);
+    Q_CHECK_PTR(app);
+    if (app->isErrorState()) {
+        app->exec();
+        return -1;
     }
-  });
 
-  QLabel *lable = new QLabel("Please Login");
+    QDialog dialog;
+    DBConnect DB = DBConnect("localhost", "27017");
 
-  QVBoxLayout *layout = new QVBoxLayout;
-  layout->addWidget(lable);
-  layout->addWidget(username);
-  layout->addWidget(password);
-  layout->addWidget(loginButton);
+    auto *username = new QLineEdit;
+    username->setPlaceholderText("Username");
 
-  dialog.setLayout(layout);
+    auto *password = new QLineEdit;
+    password->setPlaceholderText("Password");
+    password->setEchoMode(QLineEdit::Password);
 
-  dialog.setWindowTitle("Login");
-  dialog.resize(250, 100);
+    auto *loginButton = new QPushButton("Login");
+    QObject::connect(loginButton, &QPushButton::clicked, [&]() {
+        if (DB.LoginCheck(username->text().toStdString(),
+                          password->text().toStdString())) {
+            // QMessageBox::information(nullptr, "Information", "Login success");
+            qDebug() << "Login success";
+            flag = true;
+            dialog.close();
+        } else {
+            QMessageBox::warning(nullptr, "Warning", "Wrong username or password");
+            flag = false;
+        }
+    });
 
-  dialog.show();
-  dialog.exec();
+    auto *lable = new QLabel("Please Login");
 
-  if (flag) {
+    auto *layout = new QVBoxLayout;
+    layout->addWidget(lable);
+    layout->addWidget(username);
+    layout->addWidget(password);
+    layout->addWidget(loginButton);
+
+    dialog.setLayout(layout);
+
+    dialog.setWindowTitle("Login");
+    dialog.resize(250, 100);
+
+    dialog.show();
+    dialog.exec();
+
+    if (flag) {
+        DB.UploadLog("/home/lab509/Documents/QGroundControl/CrashLogs");
 #ifdef Q_OS_LINUX
-    QApplication::setWindowIcon(
-        QIcon(":/res/resources/icons/qgroundcontrol.ico"));
+        QApplication::setWindowIcon(
+                QIcon(":/res/resources/icons/qgroundcontrol.ico"));
 #endif /* Q_OS_LINUX */
 
-    // There appears to be a threading issue in qRegisterMetaType which can
-    // cause it to throw a qWarning about duplicate type converters. This is
-    // caused by a race condition in the Qt code. Still working with them on
-    // tracking down the bug. For now we register the type which is giving us
-    // problems here while we only have the main thread. That should prevent it
-    // from hitting the race condition later on in the code.
-    qRegisterMetaType<QList<QPair<QByteArray, QByteArray>>>();
+        // There appears to be a threading issue in qRegisterMetaType which can
+        // cause it to throw a qWarning about duplicate type converters. This is
+        // caused by a race condition in the Qt code. Still working with them on
+        // tracking down the bug. For now we register the type which is giving us
+        // problems here while we only have the main thread. That should prevent it
+        // from hitd_one_result = collection.find_one(make_ting the race condition later on in the code.
+        qRegisterMetaType<QList<QPair<QByteArray, QByteArray>>>();
 
-    app->_initCommon();
-    //-- Initialize Cache System
-    getQGCMapEngine()->init();
+        app->_initCommon();
+        //-- Initialize Cache System
+        getQGCMapEngine()->init();
 
-    // Add any branch here
-    int exitCode = 0;
+        // Add any branch here
+        int exitCode = 0;
 
 #ifdef __android__
-    checkAndroidWritePermission();
+        checkAndroidWritePermission();
 #endif
-    if (!app->_initForNormalAppBoot()) {
-      return -1;
+        if (!app->_initForNormalAppBoot()) {
+            return -1;
+        }
+
+        exitCode = app->exec();
+
+        app->_shutdown();
+        delete app;
+        //-- Shutdown Cache System
+        destroyMapEngine();
+
+        qDebug() << "After app delete";
+
+        return exitCode;
+    } else {
+        qDebug() << "Exit app without login";
+
+        return -1;
     }
-
-    exitCode = app->exec();
-
-    app->_shutdown();
-    delete app;
-    //-- Shutdown Cache System
-    destroyMapEngine();
-
-    qDebug() << "After app delete";
-
-    return exitCode;
-  } else {
-    qDebug() << "Exit app without login";
-
-    return -1;
-  }
 }

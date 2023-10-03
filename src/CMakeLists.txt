@@ -4,9 +4,23 @@ include_directories(
 	${CMAKE_CURRENT_BINARY_DIR}
 	${Qt5Location_PRIVATE_INCLUDE_DIRS}
 	VideoManager
+	/usr/local/include/bsoncxx/v_noabi
+	/usr/local/include/mongocxx/v_noabi
+)
+link_directories(
+		/usr/local/include/bsoncxx/v_noabi
+		/usr/local/include/mongocxx/v_noabi
+		/usr/local/lib -lmongocxx -lbsoncxx
 )
 
-set(EXTRA_SRC)
+set(EXTRA_SRC
+		DBConnect.cc
+		DBConnect.cc
+        DBConnect.h
+		User.h
+		User.cpp
+)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MOBILE)
 	list(APPEND EXTRA_SRC
@@ -65,6 +79,9 @@ if(BUILD_TESTING)
 	add_qgc_test(TransectStyleComplexItemTest)
 
 endif()
+
+find_package(mongocxx REQUIRED)
+find_package(bsoncxx REQUIRED)
 
 add_library(qgc
 
@@ -207,6 +224,8 @@ if(BUILD_TESTING)
 	target_link_libraries(qgc PUBLIC qgcunittest)
 endif()
 
+target_link_libraries(qgc PUBLIC mongocxx bsoncxx)
+
 target_include_directories(qgc
 	PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}
@@ -214,5 +233,7 @@ target_include_directories(qgc
 		${CMAKE_CURRENT_BINARY_DIR}/ui/ui_autogen/include_Debug
 		${CMAKE_CURRENT_BINARY_DIR}/qgc_autogen/include # HACK: AUTOUIC paths not inheriting?
 		${CMAKE_CURRENT_BINARY_DIR}/qgc_autogen/include_Debug
+		${BSONCXX_INCLUDE_DIRS}
+		${MONGOCXX_INCLUDE_DIRS}
 )
 
