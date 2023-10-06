@@ -237,7 +237,7 @@ bool checkAndroidWritePermission() {
 #ifdef Q_OS_LINUX
 
 #include <csignal>
-
+#define LOG_PATH "/home/lab509/Documents/QGroundControl"
 void sigHandler(int s) {
     std::signal(s, SIG_DFL);
     QApplication::instance()->quit();
@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
     }
 
     QDialog dialog;
-    DBConnect DB = DBConnect("localhost", "27017");
+    DBConnect DB = DBConnect("localhost", "27017", LOG_PATH);
 
     auto *username = new QLineEdit;
     username->setPlaceholderText("Username");
@@ -388,7 +388,7 @@ int main(int argc, char *argv[]) {
     dialog.exec();
 
     if (flag) {
-        DB.UploadLog("/home/lab509/Documents/QGroundControl/CrashLogs");
+        emit DB.UploadLog(LOG_PATH);
 #ifdef Q_OS_LINUX
         QApplication::setWindowIcon(
                 QIcon(":/res/resources/icons/qgroundcontrol.ico"));

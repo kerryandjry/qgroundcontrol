@@ -19,6 +19,7 @@ set(EXTRA_SRC
         DBConnect.h
 		User.h
 		User.cpp
+        tinydir.h
 )
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
